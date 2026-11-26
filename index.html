@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Travel Planner - Premium Interactive</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Syne & Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'], display: ['Syne', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            ocean: '#0077B6',
+                            sky: '#00B4D8',
+                            mango: '#FF9F1C',
+                            rose: '#FF4D6D',
+                            leaf: '#2A9D8F'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        body {
+            background-color: #e2e8f0;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0; color: #1e293b;
+            background-image: url('https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            transition: background 0.8s ease-in-out;
+        }
+
+        body::before {
+            content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.1); backdrop-filter: blur(5px); z-index: 0;
+        }
+
+        .app-container {
+            width: 100%; max-width: 400px; height: 100vh; max-height: 850px;
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            position: relative; overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); z-index: 10;
+        }
+
+        @media (min-width: 450px) {
+            .app-container { height: 850px; border-radius: 2.5rem; border: 1px solid rgba(255,255,255,0.6); box-shadow: 0 30px 60px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.4); }
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+        }
+
+        .screen { display: none; height: 100%; overflow-y: auto; padding-bottom: 120px; animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .screen.active { display: block; }
+        @keyframes slideUpFade { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        .nav-dock { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 1); box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
+        .nav-item { color: #94a3b8; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .nav-item.active { color: #0077B6; transform: translateY(-4px) scale(1.1); }
+        .nav-item.active .glow-dot { opacity: 1; transform: scale(1); }
+        .glow-dot { opacity: 0; transform: scale(0); width: 5px; height: 5px; border-radius: 50%; background: #0077B6; transition: 0.3s; }
+
+        .loader { border: 2px solid rgba(0,0,0,0.1); border-top: 2px solid #0077B6; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .modal-overlay { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity 0.3s ease; z-index: 200; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content { transform: scale(0.95) translateY(10px); transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); background: rgba(255,255,255,0.9); }
+        .modal-overlay.active .modal-content { transform: scale(1) translateY(0); }
+
+        .dashed-control { border: 2px dashed rgba(0, 119, 182, 0.3); background: rgba(255, 255, 255, 0.4); color: #0077B6; }
+        .dashed-control:hover { background: rgba(0, 119, 182, 0.05); border-color: rgba(0, 119, 182, 0.6); }
+
+        input::placeholder, select { color: #64748b; }
+
+        /* Slideshow Animation */
+        .slideshow-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; animation: fadeSlide 9s infinite; border-radius: 1rem; }
+        .slideshow-img:nth-child(1) { animation-delay: 0s; }
+        .slideshow-img:nth-child(2) { animation-delay: 3s; }
+        .slideshow-img:nth-child(3) { animation-delay: 6s; }
+        @keyframes fadeSlide { 0%, 100% { opacity: 0; transform: scale(1); } 10%, 33% { opacity: 1; transform: scale(1.05); } 43% { opacity: 0; transform: scale(1.1); } }
+        
+        /* Spinning Globe Animation */
+        .globe-wrapper { width: 150px; height: 150px; border-radius: 50%; background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Blue_Marble_2002.png/600px-Blue_Marble_2002.png'); background-size: cover; box-shadow: inset -20px -20px 40px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.2); animation: spinGlobe 10s linear infinite; margin: 0 auto; position: relative; }
+        @keyframes spinGlobe { from { background-position: 0 0; } to { background-position: 300px 0; } }
+        .globe-pin { position: absolute; width: 10px; height: 10px; background: #FF4D6D; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #FF4D6D; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- ================= SCREEN 1: PLANNER DASHBOARD ================= -->
+        <main id="screen-plan" class="screen active hide-scroll px-6 pt-12">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="font-display text-4xl font-bold text-slate-800 tracking-tight">Wander<span class="text-brand-ocean">Sync</span></h1>
+                    <p class="text-xs text-brand-mango font-bold tracking-widest uppercase mt-1">AI Trip Commander</p>
+                </div>
+                <div class="flex gap-2">
+                    <button class="glass-panel w-11 h-11 rounded-full flex items-center justify-center text-brand-ocean hover:scale-110 transition shadow-sm" onclick="openThemeSelector()">
+                        <i class="fa-solid fa-image text-lg"></i>
+                    </button>
+                    <!-- Take Me Back - Now Interactive -->
+                    <button class="glass-panel w-11 h-11 rounded-full flex items-center justify-center text-brand-rose hover:scale-110 transition shadow-sm" onclick="playTakeMeBack()">
+                        <i class="fa-solid fa-film text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Action Banner -->
+            <div class="rounded-[1.5rem] p-5 mb-6 relative overflow-hidden group cursor-pointer shadow-lg hover:shadow-xl transition transform hover:-translate-y-1 bg-gradient-to-r from-brand-mango to-brand-rose" onclick="surpriseDestination()">
+                <div class="relative z-10 flex justify-between items-center">
+                    <div>
+                        <h2 class="font-display text-xl font-bold text-white">Surprise Me!</h2>
+                        <p class="text-xs text-white/90 mt-1 font-medium">AI Roulette Destination</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md border border-white/40 flex items-center justify-center text-white group-hover:rotate-180 transition duration-500 shadow-inner">
+                        <i class="fa-solid fa-dice text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inputs -->
+            <div class="space-y-4 mb-8">
+                <div class="relative group">
+                    <i class="fa-solid fa-location-dot absolute left-5 top-4 text-slate-400 group-focus-within:text-brand-ocean transition"></i>
+                    <input type="text" id="destInput" placeholder="Where to? (e.g., Bali, Goa)" class="w-full glass-panel rounded-2xl py-4 pl-12 pr-4 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-brand-sky/50 transition">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="relative group">
+                        <i class="fa-solid fa-wallet absolute left-4 top-4 text-slate-400 group-focus-within:text-brand-ocean transition"></i>
+                        <select id="budgetInput" class="w-full glass-panel rounded-2xl py-4 pl-10 pr-4 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-brand-sky/50 transition appearance-none">
+                            <option value="Low">Low Budget</option>
+                            <option value="Medium" selected>Medium Budget</option>
+                            <option value="High">Luxury</option>
+                        </select>
+                    </div>
+                    <div class="relative group">
+                        <i class="fa-solid fa-masks-theater absolute left-4 top-4 text-slate-400 group-focus-within:text-brand-ocean transition"></i>
+                        <select id="vibeInput" class="w-full glass-panel rounded-2xl py-4 pl-10 pr-4 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-brand-sky/50 transition appearance-none">
+                            <option value="Adventure">Adventure</option>
+                            <option value="Relaxing">Relaxing</option>
+                            <option value="Culture">Culture</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate Button -->
+            <button id="generateTripBtn" class="w-full bg-slate-900 text-white font-display font-bold py-4 rounded-2xl mb-4 shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center justify-center text-lg" onclick="generateAITrip()">
+                <i class="fa-solid fa-microchip mr-2 text-brand-sky"></i> Generate AI Itinerary
+            </button>
+
+            <!-- Custom Control -->
+            <button class="w-full dashed-control font-bold py-3.5 rounded-2xl transition flex items-center justify-center text-sm" onclick="openCustomBuilder()">
+                <i class="fa-solid fa-hammer mr-2"></i> [Custom Control] Build Custom Itinerary
+            </button>
+
+            <!-- AI Output Preview -->
+            <div id="aiOutputBox" class="mt-6 glass-panel rounded-3xl p-5 border-2 border-brand-sky/30 hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-display font-bold text-brand-ocean text-lg"><i class="fa-solid fa-check-circle mr-1"></i> Trip Generated</h3>
+                    <button class="text-xs bg-brand-sky text-white px-4 py-1.5 rounded-full hover:bg-brand-ocean transition font-bold shadow-md" onclick="saveToSheetDB()">Save to DB</button>
+                </div>
+                <div id="itineraryContent" class="text-sm text-slate-700 font-medium space-y-4 relative border-l-2 border-slate-300 ml-2 pl-4">
+                    <!-- Dynamic API content will render here -->
+                </div>
+            </div>
+        </main>
+
+        <!-- ================= SCREEN 2: ACTIVE ITINERARY ================= -->
+        <main id="screen-active" class="screen hide-scroll px-6 pt-12">
+            <h1 class="font-display text-3xl font-bold text-slate-800 mb-2">Live Execution</h1>
+            
+            <!-- Budget Estimator -->
+            <div class="glass-panel rounded-[1.5rem] p-6 mb-6 relative overflow-hidden border border-white">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-brand-rose rounded-full blur-[50px] opacity-20"></div>
+                <p class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Total Budget Estimator</p>
+                <div class="flex items-end gap-2 mb-4">
+                    <h2 class="font-display text-4xl font-bold text-slate-800" id="spentBudget">$1,250</h2>
+                    <span class="text-sm text-slate-400 font-medium mb-1" id="totalBudget">/ $1,500</span>
+                </div>
+                <div class="w-full bg-slate-200/50 rounded-full h-3 mb-5 border border-white/50 relative">
+                    <div id="budgetBar" class="bg-gradient-to-r from-brand-mango to-brand-rose h-full rounded-full shadow-inner transition-all duration-500" style="width: 83%"></div>
+                </div>
+                <div class="bg-white/40 rounded-xl p-3 flex justify-between items-center border border-white/60">
+                    <p class="text-[10px] font-bold text-slate-600">[Feedback System] Accurate food budget?</p>
+                    <div class="flex gap-2">
+                        <button class="text-xs bg-white text-brand-leaf font-bold px-3 py-1 rounded-full shadow-sm hover:bg-brand-leaf hover:text-white transition" onclick="adjustBudget(true)">Yes</button>
+                        <button class="text-xs bg-white text-brand-rose font-bold px-3 py-1 rounded-full shadow-sm hover:bg-brand-rose hover:text-white transition" onclick="adjustBudget(false)">No</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reschedule Button (Interactive AI call) -->
+            <button class="w-full glass-panel border-2 border-brand-ocean/20 text-brand-ocean font-bold py-4 rounded-2xl mb-8 shadow-sm hover:bg-white/80 transition flex items-center justify-center text-lg" onclick="rescheduleTrip()">
+                <i class="fa-solid fa-arrows-rotate mr-2"></i> Reschedule Now (Auto-Adapt)
+            </button>
+
+            <!-- Live Timeline -->
+            <div id="liveTimeline" class="relative pl-4 border-l-2 border-slate-300 space-y-6">
+                <div class="relative">
+                    <div class="absolute -left-[21px] w-3 h-3 bg-slate-300 rounded-full border-2 border-white"></div>
+                    <p class="text-xs font-bold text-slate-400">09:00 AM</p>
+                    <div class="glass-panel p-4 rounded-xl mt-1 opacity-60">Airport Arrival</div>
+                </div>
+                <div class="relative">
+                    <div class="absolute -left-[23px] w-4 h-4 bg-brand-sky rounded-full border-[3px] border-white shadow-[0_0_10px_rgba(0,180,216,0.5)] animate-pulse"></div>
+                    <p class="text-xs text-brand-ocean font-bold bg-brand-sky/10 inline-block px-2 py-0.5 rounded-md">12:30 PM (Current)</p>
+                    <div class="bg-white/80 backdrop-blur-md p-4 rounded-xl mt-2 border border-brand-sky/30 shadow-md">
+                        <h4 class="font-bold text-slate-800 text-lg">Local Seafood Lunch</h4>
+                        <p class="text-xs text-slate-500 font-medium mt-1"><i class="fa-solid fa-utensils mr-1"></i> Ocean View Restaurant. Est: $40</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ================= SCREEN 3: GAMIFICATION HUB ================= -->
+        <main id="screen-game" class="screen hide-scroll px-6 pt-12">
+            <h1 class="font-display text-3xl font-bold text-slate-800 mb-1">Challenge Hub</h1>
+            <p class="text-xs text-brand-ocean font-bold mb-6 uppercase tracking-wider">Level up your journey</p>
+
+            <!-- VS Mode Card -->
+            <div class="glass-panel rounded-[1.5rem] p-5 mb-6 relative overflow-hidden shadow-lg border border-white">
+                <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-brand-sky via-brand-ocean to-brand-rose"></div>
+                <div class="flex justify-between items-center mb-5 mt-2">
+                    <div class="text-center">
+                        <div class="w-14 h-14 rounded-full border-4 border-white shadow-md mx-auto overflow-hidden"><img src="https://placehold.co/100x100/0077B6/FFFFFF?text=You" class="w-full h-full object-cover"></div>
+                        <p class="text-sm font-bold mt-2 text-slate-800">You</p>
+                    </div>
+                    <div class="font-display text-3xl font-black italic text-slate-300 drop-shadow-sm">VS</div>
+                    <div class="text-center">
+                        <div class="w-14 h-14 rounded-full border-4 border-white shadow-md mx-auto overflow-hidden"><img src="https://placehold.co/100x100/FF4D6D/FFFFFF?text=A" class="w-full h-full object-cover"></div>
+                        <p class="text-sm font-bold mt-2 text-slate-800">Partner</p>
+                    </div>
+                </div>
+                <div class="bg-white/50 rounded-xl p-4 text-center border border-white/80 shadow-inner">
+                    <p class="text-sm text-slate-600 font-bold">Active Bet: <span class="text-slate-900" id="activeBetText">Navigate city without GPS</span></p>
+                    <p class="text-xs text-brand-rose font-bold mt-2 bg-brand-rose/10 inline-block px-3 py-1 rounded-full"><i class="fa-solid fa-gift mr-1"></i> Reward: Loser buys dinner!</p>
+                </div>
+            </div>
+
+            <!-- Custom Bet Interactive -->
+            <button class="w-full dashed-control font-bold py-4 rounded-2xl mb-8 transition flex items-center justify-center text-sm" onclick="openCustomBet()">
+                <i class="fa-solid fa-pen-to-square mr-2"></i> [Custom Control] Create Challenge/Bet
+            </button>
+
+            <!-- Bucket List & 3D Globe -->
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-display text-xl font-bold text-slate-800">Bucket List</h3>
+                <div class="flex gap-2">
+                    <button class="text-[10px] font-bold bg-brand-ocean/10 text-brand-ocean px-3 py-1.5 rounded-full hover:bg-brand-ocean hover:text-white transition flex items-center shadow-sm border border-brand-ocean/20" onclick="showGlobe()">
+                        <i class="fa-solid fa-earth-americas mr-1"></i> 3D Globe
+                    </button>
+                    <!-- AI Gen Bucket List Interactive -->
+                    <button class="text-[10px] font-bold bg-brand-mango text-white px-3 py-1.5 rounded-full hover:shadow-md transition flex items-center shadow-sm" onclick="generateBucketList()">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI Gen
+                    </button>
+                </div>
+            </div>
+            
+            <div class="space-y-3" id="bucketListContainer">
+                <div class="glass-panel p-4 rounded-2xl flex items-center justify-between opacity-60">
+                    <div class="flex items-center">
+                        <div class="w-7 h-7 rounded-full bg-brand-leaf text-white flex items-center justify-center mr-3 shadow-inner"><i class="fa-solid fa-check text-sm"></i></div>
+                        <span class="text-sm font-bold line-through text-slate-600">1st Trip Together</span>
+                    </div>
+                    <i class="fa-solid fa-medal text-brand-mango text-xl drop-shadow-sm"></i>
+                </div>
+                <!-- Real Image Upload Trigger for Bucket List -->
+                <div class="bg-white/80 backdrop-blur-md p-4 rounded-2xl flex items-center justify-between border border-white shadow-md cursor-pointer hover:shadow-lg transition transform hover:-translate-y-0.5" onclick="document.getElementById('proofUpload').click()">
+                    <div class="flex items-center">
+                        <div class="w-7 h-7 rounded-full border-2 border-slate-300 bg-slate-100 flex items-center justify-center mr-3 transition-colors" id="task2Check"></div>
+                        <span class="text-sm font-bold text-slate-800">Try Exotic Street Food</span>
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-brand-sky/10 text-brand-sky flex justify-center items-center">
+                        <i class="fa-solid fa-camera text-sm"></i>
+                    </div>
+                    <input type="file" id="proofUpload" class="hidden" accept="image/*" onchange="uploadBucketListProof(this)">
+                </div>
+            </div>
+        </main>
+
+        <!-- ================= SCREEN 4: GROUP & UTILITIES ================= -->
+        <main id="screen-util" class="screen hide-scroll px-6 pt-12">
+            <h1 class="font-display text-3xl font-bold text-slate-800 mb-6">Group & Safety</h1>
+
+            <!-- Live Group Radar -->
+            <div class="bg-white/80 backdrop-blur-md rounded-[1.5rem] p-5 mb-5 border border-white shadow-lg relative overflow-hidden group cursor-pointer" onclick="findMeetupPoint()">
+                <div class="absolute -right-10 -top-10 w-40 h-40 bg-brand-sky/10 rounded-full blur-2xl"></div>
+                <div class="flex justify-between items-center mb-4 relative z-10">
+                    <div>
+                        <h3 class="font-bold text-base text-slate-800"><i class="fa-solid fa-satellite-dish text-brand-ocean mr-2 animate-pulse"></i>Group Radar</h3>
+                        <p class="text-xs text-slate-500 mt-1 font-medium">Sync locations & find center point</p>
+                    </div>
+                    <div class="flex -space-x-3">
+                        <img src="https://placehold.co/100/0077B6/FFFFFF?text=Y" class="w-9 h-9 rounded-full border-2 border-white shadow-sm relative z-30">
+                        <img src="https://placehold.co/100/FF4D6D/FFFFFF?text=A" class="w-9 h-9 rounded-full border-2 border-white shadow-sm relative z-20">
+                        <div class="w-9 h-9 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-600 shadow-sm relative z-10">+2</div>
+                    </div>
+                </div>
+                <button class="w-full bg-brand-ocean/10 text-brand-ocean font-bold py-3 rounded-xl text-sm hover:bg-brand-ocean hover:text-white transition relative z-10 flex items-center justify-center">
+                    <i class="fa-solid fa-location-crosshairs mr-2"></i> Find Meetup Spot
+                </button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-5">
+                <!-- Interactive Split Bill -->
+                <div class="glass-panel rounded-3xl p-5 flex flex-col justify-between cursor-pointer border border-white shadow-sm hover:shadow-md transition" onclick="openSplitBill()">
+                    <div class="w-10 h-10 rounded-full bg-brand-leaf/10 flex items-center justify-center mb-3">
+                        <i class="fa-solid fa-file-invoice-dollar text-xl text-brand-leaf"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-slate-800">Split Bill</h3>
+                        <p class="text-[11px] text-slate-500 font-medium">Interactive Calculator</p>
+                    </div>
+                </div>
+                <!-- Interactive Live Poll -->
+                <div class="glass-panel rounded-3xl p-5 flex flex-col justify-between cursor-pointer border border-white shadow-sm hover:shadow-md transition" onclick="openLivePoll()">
+                    <div class="w-10 h-10 rounded-full bg-brand-mango/10 flex items-center justify-center mb-3">
+                        <i class="fa-solid fa-check-to-slot text-xl text-brand-mango"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-slate-800">Live Poll</h3>
+                        <p class="text-[11px] text-slate-500 font-medium">Vote Now</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Smart SOS Interactive -->
+            <div class="rounded-3xl p-1 relative overflow-hidden mb-5 bg-gradient-to-r from-brand-rose to-orange-500 shadow-lg">
+                <button class="w-full bg-white/90 backdrop-blur-md text-brand-rose font-bold py-4 rounded-[1.3rem] flex items-center justify-center hover:bg-white transition text-lg" onclick="triggerSOS()">
+                    <i class="fa-solid fa-shield-heart text-xl mr-3 animate-pulse"></i> Smart Safety & SOS
+                </button>
+            </div>
+
+            <!-- Cultural Connect API -->
+            <div class="glass-panel rounded-3xl p-5 mb-5 border border-brand-mango/30 shadow-sm cursor-pointer hover:shadow-md transition group relative overflow-hidden" onclick="fetchCulturalEvents()">
+                <div class="absolute -right-5 -top-5 w-24 h-24 bg-brand-mango/10 rounded-full blur-xl"></div>
+                <div class="flex justify-between items-center mb-2 relative z-10">
+                    <h3 class="font-bold text-sm text-slate-800"><i class="fa-solid fa-masks-theater text-brand-mango mr-2"></i>Cultural Connect</h3>
+                    <span class="text-[10px] font-bold bg-brand-mango/10 text-brand-mango px-3 py-1 rounded-full animate-pulse">AI Search</span>
+                </div>
+                <p class="text-[11px] text-slate-500 font-medium relative z-10">Discover regional festivals happening during your trip.</p>
+            </div>
+
+            <!-- AI Packing API -->
+            <div class="glass-panel rounded-3xl p-4 mb-4 flex justify-between items-center cursor-pointer border border-white shadow-sm hover:shadow-md transition" onclick="fetchPackingList()">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mr-4 text-slate-600 shadow-inner"><i class="fa-solid fa-suitcase-rolling text-lg"></i></div>
+                    <div>
+                        <h3 class="font-bold text-sm text-slate-800">AI Packing Guide</h3>
+                        <p class="text-[11px] text-slate-500 font-medium mt-0.5">Live weather synced list</p>
+                    </div>
+                </div>
+                <div class="w-8 h-8 rounded-full bg-white flex justify-center items-center shadow-sm">
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-xs"></i>
+                </div>
+            </div>
+
+            <!-- Local Lingo API + SpeechSynthesis -->
+            <div class="glass-panel rounded-3xl p-5 border border-white shadow-sm mb-6" onclick="fetchLocalLingo()">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-sm text-slate-800"><i class="fa-solid fa-language text-brand-ocean mr-2"></i>Local Lingo Guide</h3>
+                    <span class="text-[10px] font-bold bg-brand-ocean/10 text-brand-ocean px-3 py-1 rounded-full cursor-pointer hover:bg-brand-ocean hover:text-white transition">Generate New</span>
+                </div>
+                <div class="space-y-2">
+                    <div class="bg-white/80 rounded-xl p-3 flex justify-between items-center border border-white">
+                        <div>
+                            <p class="text-sm font-bold text-slate-800" id="lingoWord">Terima kasih</p>
+                            <p class="text-[11px] text-slate-500 font-medium" id="lingoMeaning">Thank you</p>
+                        </div>
+                        <button class="w-9 h-9 rounded-full bg-slate-100 text-brand-ocean flex justify-center items-center hover:bg-slate-200 transition shadow-sm" onclick="event.stopPropagation(); playLingoAudio()"><i class="fa-solid fa-volume-high text-sm"></i></button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ================= FLOATING BOTTOM NAVIGATION ================= -->
+        <div class="absolute bottom-5 left-5 right-5 flex justify-center z-50">
+            <nav class="nav-dock rounded-full px-6 py-3 flex justify-between items-center w-full max-w-[320px]">
+                <div class="flex flex-col items-center nav-item active cursor-pointer w-12" onclick="switchTab('plan', this)">
+                    <i class="fa-solid fa-house text-xl mb-1"></i>
+                    <div class="glow-dot mt-1"></div>
+                </div>
+                <div class="flex flex-col items-center nav-item cursor-pointer w-12" onclick="switchTab('active', this)">
+                    <i class="fa-solid fa-map-location-dot text-xl mb-1"></i>
+                    <div class="glow-dot mt-1"></div>
+                </div>
+                <div class="flex flex-col items-center nav-item cursor-pointer w-12" onclick="switchTab('game', this)">
+                    <i class="fa-solid fa-gamepad text-xl mb-1"></i>
+                    <div class="glow-dot mt-1"></div>
+                </div>
+                <div class="flex flex-col items-center nav-item cursor-pointer w-12" onclick="switchTab('util', this)">
+                    <i class="fa-solid fa-layer-group text-xl mb-1"></i>
+                    <div class="glow-dot mt-1"></div>
+                </div>
+            </nav>
+        </div>
+
+        <!-- ================= CUSTOM MODAL ================= -->
+        <div id="customModal" class="fixed inset-0 flex items-center justify-center modal-overlay p-6 z-[200]">
+            <div class="w-full max-w-sm rounded-[2rem] p-6 border border-white/50 modal-content relative overflow-hidden shadow-2xl">
+                <div class="absolute inset-0 bg-white/95 backdrop-blur-xl -z-10"></div>
+                <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-brand-ocean via-brand-sky to-brand-mango"></div>
+                
+                <h3 id="modalTitle" class="font-display text-2xl font-bold text-slate-800 mb-2 mt-2">Title</h3>
+                <div id="modalMessage" class="text-sm font-medium text-slate-600 mb-6 leading-relaxed">Message.</div>
+                
+                <div class="flex gap-3" id="modalActions">
+                    <button id="modalPrimaryBtn" class="flex-1 bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-slate-800 transition text-sm shadow-md" onclick="closeModal()">OK</button>
+                    <button id="modalSecondaryBtn" class="flex-1 bg-slate-100 text-slate-700 font-bold py-3.5 rounded-xl border border-slate-200 hover:bg-slate-200 transition text-sm hidden" onclick="closeModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= JAVASCRIPT API LOGIC & INSTRUCTIONS ================= -->
+    <script>
+        const GEMINI_API_KEY = "AQ.Ab8RN6J8aOXaCobGQ6Y_ivmgwfQIgobszJNvHacUgeQYodipmA"; 
+        const SHEETDB_API_URL = "https://sheetdb.io/api/v1/xxmv0yrm8dra5";
+        const IMGBB_API_KEY = "12634aed8b4b8ebefba289b5d49f8ae7";
+        
+        let generatedTripData = ""; 
+
+        // --- Core Modal & Nav Logic ---
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen-' + tabId).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        let primaryCb = null; let secondaryCb = null;
+        function showModal(title, message, primaryText = "OK", primaryCallback = null, secondaryText = null, secondaryCallback = null) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerHTML = message; 
+            const pBtn = document.getElementById('modalPrimaryBtn');
+            pBtn.innerText = primaryText; primaryCb = primaryCallback;
+            const sBtn = document.getElementById('modalSecondaryBtn');
+            if(secondaryText) {
+                sBtn.innerText = secondaryText; sBtn.classList.remove('hidden'); secondaryCb = secondaryCallback;
+            } else {
+                sBtn.classList.add('hidden');
+            }
+            document.getElementById('customModal').classList.add('active');
+        }
+        function closeModal() { document.getElementById('customModal').classList.remove('active'); }
+        
+        function simulateLoading(text) {
+            const btn = document.activeElement;
+            const originalHtml = btn.innerHTML;
+            if(btn.tagName === 'BUTTON') {
+                btn.innerHTML = `<span class="loader mr-2 inline-block"></span> ${text}`;
+                setTimeout(() => btn.innerHTML = originalHtml, 1500);
+            }
+        }
+
+        // --- Core Gemini AI Function ---
+        async function askGemini(promptText) {
+            const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+            for (const model of modelsToTry) {
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{parts: [{text: promptText}]}] })
+                    });
+                    const data = await response.json();
+                    if(!data.error) return data.candidates[0].content.parts[0].text;
+                } catch (err) {}
+            }
+            throw new Error("API Limit or Error");
+        }
+
+        // --- 1. INTERACTIVE BUTTON: Theme Selector ---
+        function openThemeSelector() {
+            const themeHTML = `
+                <p class="mb-4 text-xs font-medium text-slate-500">Choose a stunning wallpaper or a fresh color theme.</p>
+                <div class="grid grid-cols-4 gap-3">
+                    <div class="w-12 h-12 rounded-2xl border-2 border-white cursor-pointer hover:-translate-y-1 transition shadow-md" style="background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)" onclick="changeBg('linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)')"></div>
+                    <div class="col-span-2 h-20 rounded-2xl bg-cover bg-center cursor-pointer hover:shadow-lg border-2 border-white transition relative overflow-hidden group" style="background-image: url('https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80');" onclick="changeBg('url(https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80)')">
+                        <div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition"></div>
+                        <span class="absolute bottom-1 left-2 text-[9px] font-bold text-white drop-shadow-md">Santorini</span>
+                    </div>
+                </div>
+            `;
+            showModal('App Customization', themeHTML, 'Close');
+        }
+        function changeBg(bgStyle) { document.body.style.backgroundImage = bgStyle; }
+
+        // --- 2. INTERACTIVE BUTTON: Take Me Back Slideshow ---
+        function playTakeMeBack() {
+            const slidesHTML = `
+                <div class="relative w-full h-48 rounded-2xl overflow-hidden shadow-inner border border-slate-200 bg-black">
+                    <img src="https://images.unsplash.com/photo-1527631746610-bca00a040d60?auto=format&fit=crop&w=800&q=80" class="slideshow-img">
+                    <img src="https://images.unsplash.com/photo-1506461883276-594543d0e225?auto=format&fit=crop&w=800&q=80" class="slideshow-img">
+                    <img src="https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80" class="slideshow-img">
+                    <div class="absolute bottom-2 left-2 flex items-center gap-1 bg-black/50 backdrop-blur px-2 py-1 rounded-full">
+                        <i class="fa-solid fa-music text-white text-[8px] animate-pulse"></i>
+                        <div class="flex items-end gap-[1px] h-2"><div class="w-0.5 bg-brand-sky h-full animate-bounce"></div><div class="w-0.5 bg-brand-sky h-1 animate-bounce" style="animation-delay:0.1s"></div></div>
+                    </div>
+                </div>
+                <p class="text-xs text-center mt-3 font-bold text-brand-ocean italic">"Memories from Summer '24"</p>
+            `;
+            showModal('Cinematic Memories', slidesHTML, 'Close Player');
+        }
+
+        // --- 3. INTERACTIVE BUTTON: Surprise Me ---
+        function surpriseDestination() {
+            const places = ["Bali, Indonesia", "Kyoto, Japan", "Swiss Alps", "Santorini, Greece", "Machu Picchu, Peru", "Banff, Canada"];
+            document.getElementById('destInput').value = places[Math.floor(Math.random() * places.length)];
+        }
+
+        // --- 4. INTERACTIVE BUTTON: Generate Trip ---
+        async function generateAITrip() {
+            let dest = document.getElementById('destInput').value || "a random beautiful destination";
+            const budget = document.getElementById('budgetInput').value;
+            const vibe = document.getElementById('vibeInput').value;
+            const btn = document.getElementById('generateTripBtn');
+            btn.disabled = true; btn.innerHTML = `<span class="loader mr-2 inline-block border-t-white"></span> Generating...`;
+            
+            try {
+                const promptText = `Act as a travel expert. Create a brief 1-day itinerary for ${dest} with a ${budget} budget focusing on ${vibe}. Format in 3 short bullet points (Morning, Afternoon, Evening) separated by new lines.`;
+                generatedTripData = await askGemini(promptText);
+                
+                const contentDiv = document.getElementById('itineraryContent');
+                contentDiv.innerHTML = ""; 
+                const lines = generatedTripData.split('\n').filter(line => line.trim().length > 0);
+                
+                lines.forEach((line, index) => {
+                    let color = index === 0 ? 'brand-ocean' : (index === 1 ? 'brand-rose' : 'brand-mango');
+                    contentDiv.innerHTML += `
+                        <div class="relative mt-4">
+                            <div class="absolute -left-[23px] w-3 h-3 bg-${color} rounded-full border-2 border-white shadow-sm"></div>
+                            <p class="text-sm font-medium text-slate-700 mt-1 leading-relaxed">${line.replace(/[*#]/g, '')}</p>
+                        </div>`;
+                });
+                document.getElementById('aiOutputBox').classList.remove('hidden');
+                
+                // Also update the Live Execution timeline based on AI
+                document.getElementById('liveTimeline').innerHTML = `
+                    <div class="relative"><div class="absolute -left-[23px] w-4 h-4 bg-brand-sky rounded-full border-[3px] border-white shadow-[0_0_10px_rgba(0,180,216,0.5)] animate-pulse"></div><p class="text-xs text-brand-ocean font-bold bg-brand-sky/10 inline-block px-2 py-0.5 rounded-md">Live Suggestion</p><div class="bg-white/80 backdrop-blur-md p-4 rounded-xl mt-2 border border-brand-sky/30 shadow-md"><p class="text-xs text-slate-800 font-bold">${lines[0].replace(/[*#]/g, '')}</p></div></div>
+                `;
+
+                btn.innerHTML = `<i class="fa-solid fa-check mr-2"></i> Ready`;
+                btn.classList.replace('bg-slate-900', 'bg-emerald-500');
+                setTimeout(() => { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-microchip mr-2 text-brand-sky"></i> Generate AI Itinerary`; btn.classList.replace('bg-emerald-500', 'bg-slate-900'); }, 3000);
+            } catch (err) { btn.innerHTML = `API Error.`; btn.disabled = false; }
+        }
+
+        // --- 5. INTERACTIVE BUTTON: Custom Builder ---
+        function openCustomBuilder() {
+            showModal('Custom Builder', `
+                <input type="time" class="w-full mb-3 p-3 rounded-xl border bg-slate-50" value="10:00">
+                <input type="text" class="w-full mb-3 p-3 rounded-xl border bg-slate-50" placeholder="Activity Name (e.g. Scuba diving)">
+                <button class="w-full bg-brand-ocean text-white font-bold py-3 rounded-xl" onclick="closeModal()">Add to Timeline</button>
+            `, 'Cancel');
+        }
+
+        // --- 6. INTERACTIVE BUTTON: Save DB ---
+        async function saveToSheetDB() {
+            const dest = document.getElementById('destInput').value || "Random";
+            showModal("Saving...", "Pushing data to Excel...", "OK");
+            try {
+                const response = await fetch(SHEETDB_API_URL, { 
+                    method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: [{ Destination: dest, Itinerary: generatedTripData, Date: new Date().toLocaleDateString() }] })
+                });
+                if(response.ok) showModal("Success!", "Saved to Google Sheet.", "Awesome!");
+            } catch (err) { showModal("Error", "Could not save.", "Close"); }
+        }
+
+        // --- 7. INTERACTIVE BUTTON: Reschedule AI ---
+        async function rescheduleTrip() {
+            showModal("Recalculating...", "<div class='flex justify-center my-4'><span class='loader border-t-brand-ocean'></span></div><p class='text-center'>AI is finding late-night spots...</p>", "Wait");
+            try {
+                const dest = document.getElementById('destInput').value || "the city";
+                const result = await askGemini(`Give me one crazy late-night activity in ${dest} to do right now, keep it under 15 words.`);
+                showModal("Route Adapted", `<div class='bg-brand-sky/10 p-4 rounded-xl border border-brand-sky/30'><h4 class='font-bold text-brand-ocean mb-1'>New Plan!</h4><p class='text-sm font-medium'>${result.replace(/[*#]/g, '')}</p></div>`, "Execute");
+            } catch(e) { showModal("Error", "Network failed", "Close"); }
+        }
+
+        // --- 8. INTERACTIVE BUTTON: Feedback Budget ---
+        function adjustBudget(isAccurate) {
+            const spent = document.getElementById('spentBudget');
+            const bar = document.getElementById('budgetBar');
+            if(!isAccurate) {
+                spent.innerText = "$1,350";
+                spent.classList.add('text-brand-rose');
+                bar.style.width = "90%";
+                showModal('AI Calibrated', 'Noted! Your budget estimate has been increased based on your spending patterns.', 'Got it');
+            } else {
+                showModal('Thanks!', 'Budget model confirmed.', 'OK');
+            }
+        }
+
+        // --- 9. INTERACTIVE BUTTON: Custom Bet ---
+        function openCustomBet() {
+            const form = `<input type="text" id="newBet" class="w-full mb-3 p-3 rounded-xl border bg-slate-50" placeholder="e.g. Try a weird local snack"><input type="text" id="newReward" class="w-full mb-3 p-3 rounded-xl border bg-slate-50" placeholder="Reward: Loser carries bags">`;
+            showModal('Set Custom Bet', form, 'Lock Bet', () => {
+                const bet = document.getElementById('newBet').value;
+                if(bet) document.getElementById('activeBetText').innerText = bet;
+            });
+        }
+
+        // --- 10. INTERACTIVE BUTTON: 3D Globe ---
+        function showGlobe() {
+            const globeHTML = `
+                <div class="globe-wrapper mb-4">
+                    <div class="globe-pin" style="top: 30%; left: 60%;"></div>
+                    <div class="globe-pin" style="top: 50%; left: 20%; background:#2A9D8F; box-shadow: 0 0 10px #2A9D8F;"></div>
+                </div>
+                <p class="text-xs text-center font-bold text-slate-500">2 Past Memories | 1 Future Goal</p>
+            `;
+            showModal('Interactive Globe', globeHTML, 'Close');
+        }
+
+        // --- 11. INTERACTIVE BUTTON: AI Gen Bucket List ---
+        async function generateBucketList() {
+            let dest = document.getElementById('destInput').value || "this destination";
+            showModal("Generating...", `<div class='flex justify-center my-4'><span class='loader border-t-brand-mango'></span></div>`, "Wait");
+            try {
+                const list = await askGemini(`Give me 2 unique, specific bucket list activities for a tourist in ${dest}. Format as short bullet points.`);
+                const items = list.split('\n').filter(i => i.trim().length > 0);
+                
+                let newHTML = "";
+                items.forEach((item, i) => {
+                    newHTML += `<div class="bg-white/80 backdrop-blur-md p-4 rounded-2xl flex items-center justify-between border border-white shadow-md mb-3"><div class="flex items-center"><div class="w-7 h-7 rounded-full border-2 border-slate-300 bg-slate-100 flex items-center justify-center mr-3"></div><span class="text-sm font-bold text-slate-800">${item.replace(/[*#-]/g, '').substring(0,35)}...</span></div><div class="w-8 h-8 rounded-full bg-brand-sky/10 text-brand-sky flex justify-center items-center cursor-pointer"><i class="fa-solid fa-camera text-sm"></i></div></div>`;
+                });
+                document.getElementById('bucketListContainer').innerHTML = newHTML;
+                closeModal();
+            } catch(e) { closeModal(); }
+        }
+
+        // --- 12. INTERACTIVE BUTTON: Find Meetup Point ---
+        function findMeetupPoint() {
+            showModal("Group Radar: Active", `<div class='text-center my-5'><div class='w-16 h-16 rounded-full bg-brand-ocean/10 mx-auto flex items-center justify-center mb-3 relative'><div class='absolute inset-0 rounded-full border-2 border-brand-ocean animate-ping opacity-50'></div><i class='fa-solid fa-satellite-dish text-2xl text-brand-ocean'></i></div><p class='text-xs font-bold text-slate-600'>Scanning members' GPS...</p></div>`, "Cancel");
+            setTimeout(() => {
+                showModal("Meetup Found!", `<div class='bg-slate-50 border border-slate-200 rounded-2xl p-5 mt-2 shadow-sm'><h4 class='text-brand-ocean font-bold mb-2 text-lg'><i class='fa-solid fa-location-dot mr-2 text-brand-rose'></i>Central Cafe (Midpoint)</h4><p class='text-xs font-medium text-slate-600 leading-relaxed'>Equidistant for all 4 members. Travel time: ~12 mins.</p></div>`, "Route Everyone Here", () => simulateLoading('Routing...'));
+            }, 2500);
+        }
+
+        // --- 13. INTERACTIVE BUTTON: Split Bill ---
+        function openSplitBill() {
+            const calcHTML = `
+                <div class="bg-slate-100 p-4 rounded-2xl mb-4 text-center">
+                    <p class="text-xs font-bold text-slate-400 mb-1">ENTER TOTAL BILL</p>
+                    <input type="number" id="billAmount" class="w-full text-center text-3xl font-black bg-transparent outline-none text-slate-800" placeholder="$0" oninput="document.getElementById('splitResult').innerText = '$' + (this.value / 4).toFixed(2)">
+                </div>
+                <p class="text-sm font-bold text-center text-slate-600">Split between 4 people</p>
+                <div class="text-center mt-3"><span class="text-3xl font-black text-brand-leaf" id="splitResult">$0.00</span><span class="text-xs font-bold text-slate-400 ml-1">each</span></div>
+            `;
+            showModal('Split Calculator', calcHTML, 'Send Requests');
+        }
+
+        // --- 14. INTERACTIVE BUTTON: Live Poll ---
+        function openLivePoll() {
+            const pollHTML = `
+                <div class="space-y-3">
+                    <div class="bg-slate-100 p-3 rounded-xl cursor-pointer hover:bg-slate-200 transition relative overflow-hidden" onclick="this.querySelector('.bg-brand-ocean').style.width='80%'">
+                        <div class="absolute top-0 left-0 h-full bg-brand-ocean opacity-20 transition-all duration-500" style="width: 50%"></div>
+                        <p class="relative z-10 font-bold text-slate-700">🍕 Pizza Spot (2 votes)</p>
+                    </div>
+                    <div class="bg-slate-100 p-3 rounded-xl cursor-pointer hover:bg-slate-200 transition relative overflow-hidden" onclick="this.querySelector('.bg-brand-rose').style.width='100%'">
+                        <div class="absolute top-0 left-0 h-full bg-brand-rose opacity-20 transition-all duration-500" style="width: 50%"></div>
+                        <p class="relative z-10 font-bold text-slate-700">🍣 Sushi Bar (2 votes)</p>
+                    </div>
+                </div>
+            `;
+            showModal('Vote: Dinner Spot', pollHTML, 'Close');
+        }
+
+        // --- 15. INTERACTIVE BUTTON: Smart SOS ---
+        function triggerSOS() {
+            showModal('<span class="text-brand-rose"><i class="fa-solid fa-triangle-exclamation mr-2"></i>SOS Alert</span>', 'Sending live coordinates to 3 Emergency Contacts in <span id="sosCountdown" class="font-black text-xl ml-1 text-brand-rose">3</span>s...', 'Cancel');
+            let c = 3;
+            const int = setInterval(() => {
+                c--;
+                const el = document.getElementById('sosCountdown');
+                if(el) el.innerText = c;
+                if(c === 0) {
+                    clearInterval(int);
+                    showModal('SOS Sent', '<p class="font-bold text-brand-leaf text-center text-lg"><i class="fa-solid fa-check-circle mr-2"></i>Location Shared</p>', 'Close');
+                }
+            }, 1000);
+        }
+
+        // --- 16. INTERACTIVE BUTTON: Cultural Connect ---
+        async function fetchCulturalEvents() {
+            let dest = document.getElementById('destInput').value || "this city";
+            showModal("Scanning Dates...", `<div class='flex justify-center my-4'><span class='loader border-t-brand-mango'></span></div>`, "Wait");
+            try {
+                const result = await askGemini(`Name exactly 2 famous local cultural events or festivals that happen in ${dest}. Format as short bullet points.`);
+                showModal("Cultural Events Found", `<div class='bg-brand-mango/10 p-4 rounded-xl border border-brand-mango/30'><p class='text-sm font-medium'>${result.replace(/[*#]/g, '')}</p></div>`, "Add to Itinerary");
+            } catch(e) { showModal("Error", "Network failed", "Close"); }
+        }
+
+        // --- 17. INTERACTIVE BUTTON: AI Packing ---
+        async function fetchPackingList() {
+            let dest = document.getElementById('destInput').value || "a trip";
+            showModal("Generating List...", `<div class='flex justify-center my-4'><span class='loader border-t-slate-800'></span></div>`, "Wait");
+            try {
+                const result = await askGemini(`Name 3 very specific, smart packing items needed for ${dest} based on general climate. Short bullet points.`);
+                showModal("Smart Packing List", `<div class='bg-slate-100 p-4 rounded-xl'><p class='text-sm font-medium'>${result.replace(/[*#]/g, '')}</p></div>`, "Save List");
+            } catch(e) { showModal("Error", "Network failed", "Close"); }
+        }
+
+        // --- 18. INTERACTIVE BUTTON: Local Lingo & Audio ---
+        async function fetchLocalLingo() {
+            let dest = document.getElementById('destInput').value || "Paris";
+            document.getElementById('lingoWord').innerText = "Loading...";
+            try {
+                const result = await askGemini(`Give me exactly one common local greeting phrase in the native language of ${dest}, and its english meaning separated by a hyphen. (e.g. Bonjour - Hello)`);
+                const parts = result.split('-');
+                if(parts.length >= 2) {
+                    document.getElementById('lingoWord').innerText = parts[0].trim().replace(/[*#]/g, '');
+                    document.getElementById('lingoMeaning').innerText = parts[1].trim().replace(/[*#]/g, '');
+                }
+            } catch(e) { document.getElementById('lingoWord').innerText = "Error"; }
+        }
+
+        function playLingoAudio() {
+            const word = document.getElementById('lingoWord').innerText;
+            if(word && word !== "Loading...") {
+                const msg = new SpeechSynthesisUtterance();
+                msg.text = word;
+                window.speechSynthesis.speak(msg);
+            }
+        }
+
+        // --- Bucket List ImgBB Upload (Preserved) ---
+        async function uploadBucketListProof(inputElement) {
+            if(inputElement.files && inputElement.files[0]) {
+                showModal("Uploading...", "Sending your proof photo to ImgBB storage.", "OK");
+                try {
+                    const formData = new FormData(); formData.append("image", inputElement.files[0]);
+                    const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: formData });
+                    const data = await response.json();
+                    if (data.success) { showModal("Achievement Unlocked! 🏆", "Proof uploaded. Haptic sync triggered for your partner!", "Awesome"); }
+                } catch(err) { showModal("Upload Failed", "Could not upload image.", "Close"); }
+            }
+        }
+    </script>
+</body>
+</html>
